@@ -1,0 +1,207 @@
+# Instalación de Laravel usando Docker
+
+Este manual te guiará a través del proceso completo de instalación de Laravel utilizando Docker en un entorno Ubuntu/WSL.
+
+## Índice
+- [Requisitos previos](#requisitos-previos)
+- [Preparación del entorno WSL](#preparación-del-entorno-wsl)
+- [Instalación de Docker](#instalación-de-docker)
+- [Configuración de Docker](#configuración-de-docker)
+- [Creación del contenedor para Laravel](#creación-del-contenedor-para-laravel)
+- [Instalación de Laravel](#instalación-de-laravel)
+- [Configuración de la base de datos](#configuración-de-la-base-de-datos)
+- [Ejecución de la aplicación](#ejecución-de-la-aplicación)
+
+## Requisitos previos
+
+- Windows 10/11 con WSL2 habilitado
+- Distribución Ubuntu instalada en WSL
+
+## Preparación del entorno WSL
+
+```bash
+# Eliminar registro de una distribución Ubuntu existente en WSL (Windows)
+wsl --unregister Ubuntu
+
+# Actualizar los repositorios y paquetes del sistema (Ubuntu)
+sudo apt update && sudo apt upgrade -y
+```
+
+## Instalación de Docker
+
+```bash
+# Instalar paquetes necesarios para añadir repositorios HTTPS
+sudo apt install -y apt-transport-https ca-certificates curl software-properties-common
+
+# Añadir la clave GPG oficial de Docker
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+
+# Añadir el repositorio de Docker a las fuentes de APT
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+
+# Actualizar la lista de paquetes con el nuevo repositorio
+sudo apt update
+
+# Instalar Docker Engine y herramientas relacionadas
+sudo apt install -y docker-ce docker-ce-cli containerd.io
+
+# Instalar el plugin Docker Compose
+sudo apt install -y docker-compose-plugin
+
+# Verificar la instalación de Docker
+sudo docker --version
+
+# Verificar la instalación de Docker Compose
+sudo docker compose version
+```
+
+## Configuración de Docker
+
+```bash
+# Añadir el usuario actual al grupo Docker para ejecutar comandos sin sudo
+sudo usermod -aG docker $USER
+
+# Reiniciar el servicio de Docker
+sudo service docker restart
+
+# Iniciar el servicio de Docker (si no está ya iniciado)
+sudo service docker start
+
+# Verificar que Docker funciona correctamente ejecutando un contenedor de prueba
+docker run hello-world
+```
+
+## Creación del contenedor para Laravel
+
+```bash
+# Crear un contenedor Debian que se mantendrá en ejecución
+docker run -d --name laravel -p 8000:8000 debian sleep infinity
+
+# Acceder al shell del contenedor
+docker exec -it laravel bash
+```
+
+## Instalación de Laravel
+
+Una vez dentro del contenedor, instalaremos todas las dependencias necesarias y Laravel:
+
+```bash
+# Actualizar los repositorios
+apt update
+
+# Actualizar paquetes
+apt upgrade -y
+
+# Instalar extensión SQLite para PHP
+apt install -y php-sqlite3
+
+# Instalar todas las dependencias necesarias
+apt install -y curl git unzip zip libzip-dev libonig-dev libicu-dev libpng-dev libjpeg-dev libfreetype6-dev libxml2-dev supervisor nginx default-mysql-server php php-cli php-fpm php-zip php-mbstring php-xml php-gd php-curl php-mysql composer
+
+# Ir al directorio /var/www
+cd /var/www
+
+# Crear un nuevo proyecto Laravel
+composer create-project laravel/laravel app
+
+# Acceder al directorio del proyecto
+cd app
+
+# Asignar permisos adecuados para los directorios de almacenamiento y caché
+chown -R www-data:www-data storage bootstrap/cache
+```
+
+## Personalización de la vista de bienvenida
+
+```bash
+# Crear un archivo de vista personalizado
+cat > resources/views/welcome.blade.php << 'EOF'
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Laravel</title>
+        <style>
+            body {
+                font-family: 'Nunito', sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+                background-color: #f7fafc;
+            }
+            .content {
+                text-align: center;
+            }
+            h1 {
+                font-size: 48px;
+                color: #e3342f;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="content">
+            <h1>Mi primera aplicación en Laravel</h1>
+        </div>
+    </body>
+</html>
+EOF
+
+# Iniciar el servidor de desarrollo de Laravel
+php artisan serve --host=0.0.0.0
+```
+
+## Configuración de la base de datos
+
+```bash
+# Ir al directorio del proyecto
+cd /var/www/app
+
+# Editar el archivo de configuración .env
+nano .env
+```
+
+Modifica las siguientes líneas en el archivo .env:
+
+```
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=laravel
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+Luego, aplica los cambios de configuración:
+
+```bash
+# Limpiar la caché de configuración
+php artisan config:clear
+
+# Ejecutar las migraciones para crear las tablas en la base de datos
+php artisan migrate
+```
+
+## Ejecución de la aplicación
+
+```bash
+# Detener cualquier instancia de PHP en ejecución
+killall php   # Detiene cualquier proceso PHP en ejecución
+
+# Iniciar el servidor de desarrollo
+php artisan serve --host=0.0.0.0
+```
+
+Una vez que el servidor esté en funcionamiento, puedes acceder a tu aplicación Laravel en `http://localhost:8000` desde tu navegador.
+
+## Consideraciones adicionales
+
+- Para detener el contenedor: `docker stop laravel`
+- Para iniciar el contenedor: `docker start laravel`
+- Para eliminar el contenedor: `docker rm laravel`
+
+---
+
+Este manual fue creado para ayudar a desarrolladores a configurar rápidamente un entorno de desarrollo de Laravel usando Docker. Si encuentras algún problema o tienes sugerencias, no dudes en crear un issue en este repositorio.
