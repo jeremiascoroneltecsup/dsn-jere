@@ -1,41 +1,36 @@
-## "Script" Conceptual para Purgar Docker en macOS (Usando Docker Desktop)
+#!/bin/bash
 
-Este no es un script de terminal ejecutable, sino una guía paso a paso para utilizar la función integrada de Docker Desktop para restablecer su configuración.
+# Este script INTENTA purgar la configuración de Docker en macOS.
+# ¡EJECÚTALO CON EXTREMA PRECAUCIÓN Y BAJO TU PROPIA RESPONSABILIDAD!
+# SE RECOMIENDA USAR "Reset to factory defaults" EN DOCKER DESKTOP.
 
-**Pasos:**
+set -e # Detener el script si un comando falla
 
-1.  **Abre la aplicación Docker Desktop:** Busca el icono de Docker (la ballena) en tu barra de aplicaciones y haz clic para abrir la aplicación.
+echo "Deteniendo y eliminando todos los contenedores..."
+docker stop $(docker ps -aq) || true
+docker rm $(docker ps -aq) || true
 
-2.  **Accede a las Preferencias / Configuración:**
-    * Haz clic en el icono de la ballena de Docker que se encuentra en la barra de menú (en la parte superior derecha de tu pantalla).
-    * En el menú desplegable, selecciona **"Preferences..."** (Preferencias...) o **"Settings..."** (Configuración...). La opción exacta puede variar ligeramente según la versión de Docker Desktop.
+echo "Eliminando todas las imágenes..."
+docker rmi $(docker images -aq) || true
 
-3.  **Navega a la sección de Solución de Problemas / Restablecimiento:**
-    * En la ventana de "Preferences" o "Settings", busca una sección etiquetada como **"Troubleshoot"** (Solución de problemas), **"Reset"** (Restablecer) o algo similar. La ubicación exacta puede variar entre las versiones.
+echo "Eliminando todos los volúmenes no utilizados..."
+docker volume prune -f || true
 
-4.  **Encuentra la opción "Reset to factory defaults":**
-    * Dentro de la sección de solución de problemas o restablecimiento, deberías ver un botón o una opción claramente etiquetada como **"Reset to factory defaults"** (Restablecer a los valores predeterminados de fábrica).
+echo "Eliminando todas las redes personalizadas..."
+docker network prune -f || true
 
-5.  **Confirma la acción:**
-    * Haz clic en el botón **"Reset to factory defaults"**.
-    * Docker Desktop te mostrará una ventana de confirmación advirtiéndote que esta acción eliminará todos tus contenedores, imágenes, volúmenes y la configuración actual de Docker.
-    * **Lee cuidadosamente el mensaje de advertencia y asegúrate de que deseas continuar.**
-    * Haz clic en **"Reset"** o **"OK"** para confirmar.
+echo "Intentando detener la aplicación Docker Desktop..."
+osascript -e 'quit app "Docker"' || true
+sleep 5 # Esperar a que la aplicación se cierre
 
-6.  **Espera a que Docker Desktop se reinicie:**
-    * Docker Desktop comenzará el proceso de restablecimiento. Esto puede tardar unos minutos.
-    * Una vez completado, Docker Desktop se reiniciará con su configuración predeterminada, como si lo estuvieras ejecutando por primera vez.
+echo "Intentando eliminar directorios relacionados con Docker (requiere sudo)..."
+sudo rm -rf ~/Library/Containers/com.docker.docker
+sudo rm -rf ~/.docker
+sudo rm -rf /Applications/Docker.app # Esto solo elimina la aplicación, descomenta si lo deseas
 
-**¿Por qué este enfoque es el mejor para macOS?**
+echo "Esperando unos segundos..."
+sleep 10
 
-* **Seguridad:** Utiliza la funcionalidad integrada de la aplicación, diseñada para realizar esta tarea de forma segura sin riesgo de eliminar archivos incorrectos del sistema.
-* **Integridad:** Asegura que todos los componentes relacionados con Docker dentro de su entorno virtual sean limpiados correctamente.
-* **Soporte:** Es el método recomendado por los desarrolladores de Docker Desktop.
-
-**Alternativas No Recomendadas (y por qué no usarlas):**
-
-* **Eliminar carpetas manualmente en `~/Library/Containers/com.docker.docker/`:** Si bien podrías encontrar archivos relacionados con Docker en esta ubicación, eliminar carpetas directamente podría dejar residuos, causar inestabilidad en Docker Desktop o no realizar una limpieza completa.
-* **Usar comandos de terminal para interactuar con la VM de Docker:** Esto es más avanzado, requiere un conocimiento profundo de la arquitectura interna de Docker Desktop en macOS y no se recomienda para la mayoría de los usuarios, ya que puede llevar a problemas si no se hace correctamente.
-
-**En resumen, para purgar completamente Docker en macOS, la forma más sencilla, segura y recomendada es utilizar la opción "Reset to factory defaults" dentro de la aplicación Docker Desktop siguiendo los pasos detallados anteriormente.** No necesitas un script de terminal para esta tarea.
-
+echo "Puede que necesites reiniciar tu Mac para una limpieza más completa."
+echo "Se recomienda verificar y eliminar cualquier archivo o directorio restante relacionado con Docker."
+echo "La forma MÁS SEGURA y RECOMENDADA es usar 'Reset to factory defaults' en Docker Desktop."
