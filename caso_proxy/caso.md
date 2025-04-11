@@ -1,4 +1,4 @@
-# Caso de Estudio: Implementación de Testing A/B para Startup de E-commerce con Nginx
+# Caso de Estudio: Implementando A/B Testing con Nginx y Docker
 
 ## Contexto del Caso
 
@@ -6,7 +6,7 @@
 
 **Problema**: El equipo de UX ha diseñado una nueva versión de la página de inicio que creen que aumentará las conversiones, pero el CEO quiere evidencia antes de implementarla completamente. Necesitan una forma de mostrar diferentes versiones de la página a los usuarios y medir el rendimiento.
 
-**Objetivo**: Implementar un sistema de testing A/B que permita servir dos versiones diferentes de la aplicación web, asignar usuarios a cada versión mediante cookies, y facilitar la recopilación de métricas de conversión.
+**Objetivo**: Implementar un sistema de testing A/B que permita servir dos versiones diferentes de la aplicación web, asignar usuarios a cada versión mediante rutas específicas, y facilitar la recopilación de métricas de conversión.
 
 **Restricciones**: 
 - Presupuesto limitado, prefieren soluciones basadas en contenedores
@@ -15,7 +15,7 @@
 
 ## Solución Propuesta
 
-En este caso de estudio, implementaremos un sistema de proxy basado en Nginx que permite servir diferentes versiones de una aplicación web basada en Flask. El proxy utilizará cookies para determinar qué versión de la aplicación debe servir al usuario, facilitando así las pruebas A/B.
+En este caso de estudio, implementaremos un sistema de proxy basado en Nginx que permite servir diferentes versiones de una aplicación web mediante URLs específicas. Esta solución facilita las pruebas A/B y el acceso directo a cada versión para el equipo de desarrollo.
 
 ## Estructura del Proyecto
 
@@ -31,29 +31,36 @@ proxy-lab/
     └── Dockerfile
 ```
 
-## Paso 1: Preparar el entorno de trabajo
+## Guía Paso a Paso
+
+### Paso 1: Preparar el entorno de trabajo
 
 Creamos la estructura base del proyecto:
 
 ```bash
+# Crear el directorio principal del proyecto
 mkdir proxy-lab
+
+# Entrar al directorio del proyecto
 cd proxy-lab
+
+# Crear el directorio para las aplicaciones
 mkdir app
 ```
 
-## Paso 2: Crear las aplicaciones Flask (Simulando Versiones del Sitio Web)
+### Paso 2: Crear las aplicaciones Flask (Simulando Versiones del Sitio Web)
 
 Para simular las dos versiones diferentes de la página de inicio de FastShop, crearemos dos aplicaciones Flask simples:
 
-### Aplicación A (Versión Original)
-
 ```bash
+# Entrar al directorio de las aplicaciones
 cd app
 ```
 
-Creamos el archivo de la aplicación A:
+#### Aplicación A (Versión Original)
 
 ```bash
+# Crear el archivo de la aplicación A
 vi app_a.py
 ```
 
@@ -91,9 +98,10 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=80)
 ```
 
-Creamos el Dockerfile para la aplicación A:
+Ahora creamos el Dockerfile para la aplicación A:
 
 ```bash
+# Crear el Dockerfile para la aplicación A
 vi Dockerfile.a
 ```
 
@@ -107,11 +115,12 @@ RUN pip install flask
 CMD ["python", "app_a.py"]
 ```
 
-### Aplicación B (Nueva Versión Propuesta por UX)
+#### Aplicación B (Nueva Versión Propuesta por UX)
 
 Creamos el archivo de la aplicación B, que representa el nuevo diseño propuesto por el equipo de UX:
 
 ```bash
+# Crear el archivo de la aplicación B
 vi app_b.py
 ```
 
@@ -171,6 +180,7 @@ if __name__ == '__main__':
 Creamos el Dockerfile para la aplicación B:
 
 ```bash
+# Crear el Dockerfile para la aplicación B
 vi Dockerfile.b
 ```
 
@@ -184,72 +194,75 @@ RUN pip install flask
 CMD ["python", "app_b.py"]
 ```
 
-## Paso 3: Construir las imágenes Docker para las aplicaciones
-
-Volvemos al directorio principal y construimos las imágenes:
+### Paso 3: Construir las imágenes Docker para las aplicaciones
 
 ```bash
+# Volver al directorio principal del proyecto
 cd ..
+
+# Construir la imagen de Docker para la versión A
+# El punto al final indica que el contexto de construcción es el directorio actual
 sudo docker build -f app/Dockerfile.a -t myapp:version-a app/
+
+# Construir la imagen de Docker para la versión B
 sudo docker build -f app/Dockerfile.b -t myapp:version-b app/
 ```
 
-## Paso 4: Configurar Nginx como proxy para pruebas A/B
+### Paso 4: Configurar Nginx como proxy para pruebas A/B
 
-En este paso, configuraremos Nginx como un proxy inverso que gestionará la distribución del tráfico entre las dos versiones de la aplicación según las cookies del usuario. Esta es la parte central de nuestra solución para las pruebas A/B:
+En este paso, configuraremos Nginx como un proxy inverso que dirigirá el tráfico hacia cada versión de la aplicación basándose en rutas específicas.
 
 ```bash
+# Crear el directorio para los archivos de Nginx
 mkdir nginx
+
+# Entrar al directorio de Nginx
 cd nginx
 ```
 
 Creamos el archivo de configuración de Nginx:
 
 ```bash
+# Crear el archivo de configuración de Nginx
 vi nginx.conf
 ```
 
-Con el siguiente contenido:
+Con el siguiente contenido (configuración optimizada):
 
 ```nginx
-worker_processes 1;
-
 events {
     worker_connections 1024;
 }
 
 http {
-    upstream app_a {
-        server app_a:80;
-    }
-    
-    upstream app_b {
-        server app_b:80;
-    }
-    
+    # Configuración básica
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    sendfile        on;
+    keepalive_timeout  65;
+
+    # Definición de servidores
     server {
-        listen 80;
-        
-        location / {
-            set $backend "";
-            
-            if ($http_cookie ~* "version=([a-z]+)") {
-                set $backend $1;
-            }
-            
-            if ($backend = "") {
-                set $backend "app_a";  # backend por defecto.
-            }
-            
-            if ($backend = "app_a") {
-                proxy_pass http://app_a;
-            }
-            
-            if ($backend = "app_b") {
-                proxy_pass http://app_b;
-            }
-            
-            add_header Set-Cookie "version=$backend; Path=/";
+        listen       80;
+        server_name  localhost;
+
+        # Ruta para la versión A
+        location /version-a/ {
+            proxy_pass http://app_a/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        # Ruta para la versión B
+        location /version-b/ {
+            proxy_pass http://app_b/;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+
+        # Ruta principal que redirige a version-a por defecto
+        location = / {
+            return 302 /version-a/;
         }
     }
 }
@@ -258,6 +271,7 @@ http {
 Creamos el Dockerfile para Nginx:
 
 ```bash
+# Crear el Dockerfile para Nginx
 vi Dockerfile
 ```
 
@@ -268,100 +282,106 @@ FROM nginx:alpine
 COPY nginx.conf /etc/nginx/nginx.conf
 ```
 
-## Paso 5: Construir la imagen de Nginx
+### Paso 5: Construir la imagen de Nginx
 
 ```bash
+# Volver al directorio principal del proyecto
 cd ..
+
+# Construir la imagen de Docker para Nginx
+# Esto crea una imagen a partir del Dockerfile en el directorio nginx/
 docker build -t mynginx -f nginx/Dockerfile nginx
 ```
 
-## Paso 6: Crear la red Docker y ejecutar los contenedores
-
-Creamos una red Docker para que los contenedores puedan comunicarse:
+### Paso 6: Crear la red Docker y ejecutar los contenedores
 
 ```bash
+# Crear una red Docker para la comunicación entre contenedores
+# Esto permite que los contenedores se comuniquen usando nombres en lugar de IPs
 docker network create my-network
-```
 
-Ejecutamos los contenedores de las aplicaciones:
-
-```bash
+# Ejecutar el contenedor de la aplicación A
+# --name: asigna un nombre al contenedor
+# --network: conecta el contenedor a la red especificada
+# --network-alias: permite que otros contenedores en la misma red resuelvan este contenedor por nombre
 docker run -d --name app_a --network my-network --network-alias app_a myapp:version-a
+
+# Ejecutar el contenedor de la aplicación B
 docker run -d --name app_b --network my-network --network-alias app_b myapp:version-b
-```
 
-Ejecutamos el proxy Nginx:
-
-```bash
+# Ejecutar el contenedor de Nginx
+# -p 80:80: mapea el puerto 80 del host al puerto 80 del contenedor
 docker run -d --name nginx-proxy --network my-network -p 80:80 mynginx
 ```
 
-## Paso 7: Verificar el funcionamiento del sistema de pruebas A/B
-
-Verificamos que todos los contenedores estén en ejecución:
+### Paso 7: Verificar el funcionamiento
 
 ```bash
+# Verificar que todos los contenedores estén en ejecución
 docker ps
+
+# Acceder a la versión A directamente
+curl http://localhost/version-a/
+
+# Acceder a la versión B directamente
+curl http://localhost/version-b/
+
+# Acceder a la raíz (deberá redirigir a version-a)
+curl -L http://localhost/
 ```
 
-Accedemos al contenedor de Nginx para probar el acceso a las diferentes versiones:
+También puedes probar accediendo desde tu navegador:
+- http://localhost/version-a/ para ver la versión original
+- http://localhost/version-b/ para ver la nueva versión
+- http://localhost/ te redirigirá automáticamente a la versión A
+
+### Paso 8: Solución de problemas comunes
+
+Si encuentras algún problema, aquí hay algunos pasos para solucionarlo:
 
 ```bash
+# Ver los logs de los contenedores
+docker logs app_a
+docker logs app_b
+docker logs nginx-proxy
+
+# Entrar al contenedor de Nginx para realizar pruebas
 docker exec -it nginx-proxy /bin/sh
-```
 
-Una vez dentro del contenedor, realizamos pruebas para verificar el acceso a ambas versiones:
-
-```bash
+# Dentro del contenedor de Nginx, verifica la conectividad a las aplicaciones
+ping app_a
+ping app_b
 curl http://app_a
 curl http://app_b
+
+# Si es necesario, reinicia todo el entorno
+docker stop app_a app_b nginx-proxy
+docker rm app_a app_b nginx-proxy
+docker network rm my-network
+docker network create my-network
+docker run -d --name app_a --network my-network --network-alias app_a myapp:version-a
+docker run -d --name app_b --network my-network --network-alias app_b myapp:version-b
+docker run -d --name nginx-proxy --network my-network -p 80:80 mynginx
 ```
-
-Para probar el comportamiento de las cookies, podemos hacer solicitudes al proxy:
-
-```bash
-# Primera solicitud (debería asignar versión A por defecto)
-curl -v http://localhost
-
-# Solicitud con cookie de versión A
-curl -v --cookie "version=app_a" http://localhost
-
-# Solicitud con cookie de versión B
-curl -v --cookie "version=app_b" http://localhost
-```
-
-## Funcionamiento del Sistema de Pruebas A/B
-
-1. **Asignación inicial**: Cuando un usuario accede al sitio web por primera vez, se le asigna la versión A (original) por defecto.
-2. **Configuración de cookie**: Nginx establece una cookie con el valor `version=app_a` en el navegador del usuario.
-3. **Visitas posteriores**: En visitas posteriores, el proxy detecta la cookie y dirige al usuario a la misma versión que vio inicialmente.
-4. **Consistencia de experiencia**: Esto garantiza que cada usuario tenga una experiencia consistente durante toda su interacción con el sitio.
-5. **Cambio manual de versión**: Para propósitos de prueba, el equipo de desarrollo puede modificar manualmente la cookie para ver ambas versiones.
-
-## Integración con Sistemas de Analítica
-
-Para medir el rendimiento de cada versión, se recomienda integrar este sistema con herramientas de analítica como Google Analytics o Mixpanel. La cookie `version` puede ser leída por scripts de seguimiento para segmentar los datos según la versión visualizada.
-
----
 
 ## Resultados y Análisis
 
 La implementación de este sistema de proxy permitió a FastShop realizar pruebas A/B efectivas con las siguientes ventajas:
 
-1. **Distribución transparente**: Los usuarios no perciben que están participando en una prueba A/B.
-2. **Consistencia de experiencia**: Una vez asignada una versión, el usuario mantiene esa versión en sus visitas posteriores.
-3. **Fácil rollback**: En caso de problemas, se puede modificar la configuración para dirigir a todos los usuarios a la versión estable.
+1. **Acceso directo a versiones**: Los usuarios y el equipo de desarrollo pueden acceder directamente a cada versión a través de URLs específicas.
+2. **Transparencia para pruebas**: La redirección automática permite dirigir a usuarios nuevos a la versión A por defecto.
+3. **Fácil implementación**: La configuración basada en rutas es simple de entender y mantener.
 4. **Escalabilidad**: El diseño basado en contenedores permite escalar horizontalmente según la demanda.
 
 ## Preguntas Críticas para el Análisis
 
 1. **Arquitectura y Diseño**:
    - ¿Qué ventajas ofrece la arquitectura de microservicios utilizada en este caso frente a una aplicación monolítica?
-   - ¿Cómo podría mejorarse la configuración de Nginx para manejar balanceo de carga además de routing basado en cookies?
+   - ¿Cómo adaptarías esta solución para implementar balanceo de carga además de las pruebas A/B?
    - ¿Qué consideraciones de seguridad deberían tenerse en cuenta al implementar esta solución en producción?
 
 2. **Implementación Técnica**:
-   - ¿Cómo modificarías la configuración para distribuir el tráfico 70/30 entre las versiones A y B en lugar de basarte únicamente en cookies?
+   - ¿Cómo modificarías la configuración para implementar un reparto aleatorio del tráfico (70/30) entre las versiones A y B?
    - ¿Qué estrategia implementarías para recopilar métricas de conversión de cada versión?
    - ¿Cómo adaptarías esta solución para manejar más de dos versiones simultáneas?
 
@@ -381,3 +401,19 @@ Modifica la solución propuesta para:
 1. Implementar un sistema de distribución de tráfico basado en porcentajes (60% versión A, 40% versión B)
 2. Agregar cabeceras HTTP personalizadas que permitan a sistemas de analítica identificar qué versión está viendo cada usuario
 3. Diseñar un mecanismo para forzar la visualización de una versión específica para propósitos de prueba
+
+---
+
+## Notas Adicionales
+
+### Alternativa: Implementación basada en cookies
+
+Una alternativa a la solución basada en rutas sería implementar un sistema basado en cookies que asigne automáticamente a los usuarios a una versión y mantenga esa asignación en visitas posteriores. Esta implementación sería más adecuada para pruebas A/B auténticas donde la asignación debe ser transparente para el usuario.
+
+### Ventajas de la solución implementada
+
+La solución basada en rutas implementada en este caso de estudio tiene varias ventajas para un entorno educativo:
+- Mayor simplicidad y facilidad de comprensión
+- Depuración más sencilla
+- Acceso directo a cada versión sin manipular cookies o cabeceras
+- Facilidad para demostrar el concepto sin complejidades adicionales
