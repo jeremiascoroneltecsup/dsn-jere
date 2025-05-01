@@ -1,7 +1,3 @@
-¡Perfecto! Vamos a generalizar la política para que el prefijo inicial pueda ser tanto un curso/ciclo/sección como un identificador de proyecto, y añadiremos una lista de referencia de abreviaturas de servicios comunes en formación AWS.
-
----
-
 **Política de Nomenclatura y Etiquetado de Recursos AWS para Entornos Formativos y Proyectos (Revisión 6)**
 
 **1. Propósito**
@@ -135,6 +131,3 @@ El etiquetado es **FUNDAMENTAL** para gestión, filtrado y costos. Todos los rec
     *   `CreationDate`: `2023-10-27`
     *   `CleanupDate`: `2023-11-03`
 
----
-
-Esta versión generaliza el concepto, proporciona la lista de referencia de servicios solicitada y ejemplos claros tanto para entornos formativos como para proyectos simples, manteniendo la estructura compacta que preferías.
