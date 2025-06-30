@@ -56,7 +56,7 @@ Resources:
     Properties:
       InstanceType: t2.micro
       KeyName: !Ref KeyPairName
-      ImageId: 'ami-0c55b159cbfafe1f0' # Amazon Linux 2 AMI (us-east-1). Actualiza si usas otra región.
+      ImageId: 'ami-0027d359c63b1aeda' # Amazon Linux 2 AMI (us-east-1). Actualiza si usas otra región.
       SecurityGroupIds:
         - Fn::ImportValue:
             Fn::Sub: '${SecurityStackName}-EC2SGroupID'
